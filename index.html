@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mega-Sena Oficial</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a7c3b">
+
+<style>
+body{
+    margin:0;
+    background:#e5e5e5;
+    font-family: Arial;
+    display:flex;
+    justify-content:center;
+    padding:15px;
+}
+
+.cartao{
+    background:#fff9d6;
+    width:430px;
+    border:3px solid #0a7c3b;
+    box-shadow:0 6px 20px rgba(0,0,0,0.25);
+}
+
+.topo{
+    background:#0a7c3b;
+    color:white;
+    text-align:center;
+    padding:15px;
+    font-size:22px;
+    font-weight:bold;
+}
+
+.menu{
+    display:flex;
+}
+.menu button{
+    flex:1;
+    padding:8px;
+    border:none;
+    cursor:pointer;
+    font-weight:bold;
+}
+.ativo{
+    background:#0a7c3b;
+    color:white;
+}
+
+.area{ display:none; padding:12px; }
+.area.ativa{ display:block; }
+
+/* VOLANTE */
+.bloco{
+    border-bottom:2px solid black;
+    padding-bottom:6px;
+    margin-bottom:6px;
+}
+.grade{
+    display:grid;
+    grid-template-columns: repeat(10,1fr);
+    gap:4px;
+}
+.numero{
+    text-align:center;
+    padding:6px 0;
+    font-size:13px;
+    color:#c40000;
+    cursor:pointer;
+}
+.numero.sel{
+    background:#0a7c3b;
+    color:white;
+    border-radius:4px;
+}
+
+.resultado{
+    text-align:center;
+    margin-top:10px;
+    font-weight:bold;
+}
+
+button{
+    margin-top:6px;
+    padding:8px;
+    cursor:pointer;
+    font-weight:bold;
+}
+
+/* gráfico */
+.barra{
+    background:#ddd;
+    height:12px;
+    border-radius:6px;
+    margin:4px 0;
+}
+.barra-interna{
+    background:#0a7c3b;
+    height:12px;
+    border-radius:6px;
+}
+</style>
+</head>
+<body>
+
+<div class="cartao">
+
+<div class="topo">🍀 MEGA-SENA</div>
+
+<div class="menu">
+<button onclick="trocarAba('jogo')" class="ativo" id="btnJogo">JOGO</button>
+<button onclick="trocarAba('estat')" id="btnEstat">ESTATÍSTICAS</button>
+<button onclick="trocarAba('fav')" id="btnFav">FAVORITOS</button>
+</div>
+
+<!-- ABA JOGO -->
+<div id="jogo" class="area ativa">
+
+<div class="bloco">
+<div class="grade" id="grade1"></div>
+</div>
+
+<div class="bloco">
+<div class="grade" id="grade2"></div>
+</div>
+
+<div class="bloco">
+<div class="grade" id="grade3"></div>
+</div>
+
+<div class="resultado" id="resultado">
+Selecione 6 números
+</div>
+
+<button onclick="gerarAleatorio()">GERAR 6 NÚMEROS</button>
+<button onclick="limparJogo()">LIMPAR</button>
+<button onclick="salvarFavorito()">⭐ SALVAR FAVORITO</button>
+
+</div>
+
+<!-- ABA ESTATÍSTICAS -->
+<div id="estat" class="area">
+<h3>Último Concurso</h3>
+<div id="ultimo"></div>
+
+<h3>Top 10 - Últimos 100 Concursos</h3>
+<div id="grafico"></div>
+</div>
+
+<!-- ABA FAVORITOS -->
+<div id="fav" class="area">
+<div id="listaFav"></div>
+<button onclick="exportarTXT()">Exportar TXT</button>
+<button onclick="limparFavoritos()">LIMPAR FAVORITOS</button>
+</div>
+
+</div>
+
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+
+let selecionados=[];
+let favoritos=JSON.parse(localStorage.getItem("megaFavs")||"[]");
+
+/* Criar volante dividido */
+function criarBloco(inicio,fim,elemento){
+ for(let i=inicio;i<=fim;i++){
+   let div=document.createElement("div");
+   div.className="numero";
+   div.textContent=String(i).padStart(2,'0');
+   div.onclick=()=>toggle(i,div);
+   elemento.appendChild(div);
+ }
+}
+criarBloco(1,20,document.getElementById("grade1"));
+criarBloco(21,40,document.getElementById("grade2"));
+criarBloco(41,60,document.getElementById("grade3"));
+
+function toggle(n,el){
+ if(selecionados.includes(n)){
+   selecionados=selecionados.filter(x=>x!==n);
+   el.classList.remove("sel");
+ }else{
+   if(selecionados.length>=20)return;
+   selecionados.push(n);
+   el.classList.add("sel");
+ }
+ document.getElementById("resultado").textContent=
+ selecionados.sort((a,b)=>a-b).join(" - ");
+}
+
+function gerarAleatorio(){
+ selecionados=[];
+ while(selecionados.length<6){
+  let n=Math.floor(Math.random()*60)+1;
+  if(!selecionados.includes(n)) selecionados.push(n);
+ }
+ atualizarGrade();
+}
+
+function atualizarGrade(){
+ document.querySelectorAll(".numero").forEach((el,i)=>{
+  el.classList.toggle("sel",selecionados.includes(i+1));
+ });
+ document.getElementById("resultado").textContent=
+ selecionados.sort((a,b)=>a-b).join(" - ");
+}
+
+function salvarFavorito(){
+ if(selecionados.length<6)return alert("Escolha 6 números");
+ favoritos.push({nums:[...selecionados],data:new Date().toLocaleString()});
+ localStorage.setItem("megaFavs",JSON.stringify(favoritos));
+ renderFav();
+}
+
+function renderFav(){
+ const lista=document.getElementById("listaFav");
+ if(!favoritos.length){lista.innerHTML="Nenhum favorito salvo.";return;}
+ lista.innerHTML="";
+ favoritos.forEach((f,i)=>{
+   lista.innerHTML+=`<div>${i+1}) ${f.nums.join(" - ")}<br><small>${f.data}</small></div><hr>`;
+ });
+}
+function limparJogo(){
+  selecionados = [];
+  atualizarGrade();
+  document.getElementById("resultado").textContent = "Selecione 6 números";
+}
+
+function limparFavoritos(){
+  if(!confirm("Deseja apagar todos os favoritos?")) return;
+  favoritos = [];
+  localStorage.removeItem("megaFavs");
+  renderFav();
+}
+function exportarTXT(){
+ if(!favoritos.length)return;
+ let txt="FAVORITOS MEGA-SENA\n\n";
+ favoritos.forEach((f,i)=>{
+   txt+=(i+1)+") "+f.nums.join(" - ")+" | "+f.data+"\n";
+ });
+ let blob=new Blob([txt],{type:"text/plain"});
+ let link=document.createElement("a");
+ link.href=URL.createObjectURL(blob);
+ link.download="favoritos.txt";
+ link.click();
+}
+
+/* ESTATÍSTICAS REAIS */
+async function buscarEstatisticas100(){
+ try{
+   const base="https://servicebus2.caixa.gov.br/portaldeloterias/api/megasena/";
+   const ultimoRes=await fetch(base);
+   const ultimo=await ultimoRes.json();
+   document.getElementById("ultimo").innerHTML=
+   "Concurso "+ultimo.numero+"<br>"+ultimo.listaDezenas.join(" - ");
+
+   let freq={};
+   for(let i=1;i<=60;i++)freq[i]=0;
+
+   for(let n=ultimo.numero;n>ultimo.numero-100;n--){
+     const r=await fetch(base+n);
+     const d=await r.json();
+     d.listaDezenas.forEach(dez=>freq[parseInt(dez)]++);
+   }
+
+   const max=Math.max(...Object.values(freq));
+   const top=Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,10);
+
+   const grafico=document.getElementById("grafico");
+   grafico.innerHTML="";
+   top.forEach(([num,val])=>{
+     grafico.innerHTML+=`
+     <div><b>${num}</b> (${val}x)
+       <div class="barra">
+         <div class="barra-interna" style="width:${(val/max)*100}%"></div>
+       </div>
+     </div>`;
+   });
+
+ }catch(e){
+   document.getElementById("ultimo").innerHTML="Erro ao carregar dados oficiais.";
+ }
+}
+
+function trocarAba(nome){
+ document.querySelectorAll(".area").forEach(a=>a.classList.remove("ativa"));
+ document.querySelectorAll(".menu button").forEach(b=>b.classList.remove("ativo"));
+ document.getElementById(nome).classList.add("ativa");
+ document.getElementById("btn"+nome.charAt(0).toUpperCase()+nome.slice(1)).classList.add("ativo");
+}
+
+buscarEstatisticas100();
+renderFav();
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "name": "Mega-Sena Oficial",
+  "short_name": "MegaSena",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#fff9d6",
+  "theme_color": "#0a7c3b"
+}
